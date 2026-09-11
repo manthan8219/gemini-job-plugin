@@ -1,0 +1,10 @@
+{
+  "session-injector": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "sh scripts/session.sh || scripts\\session.bat"
+      }
+    ]
+  }
+}

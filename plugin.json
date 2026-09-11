@@ -1,6 +1,6 @@
 {
   "name": "job-assistant",
-  "description": "An end-to-end AI career toolkit for job seekers. It features a suite of specialized agents that parse resumes into structured JSON data, search the web for public corporate application contacts, automate job finding, generate highly tailored outreach emails for referrals, and craft ATS-optimized, country-specific resumes (US, UK, DACH, India).",
+  "description": "An end-to-end AI career toolkit. Uses the job-applier-mcp server to securely handle Auth/Login, track User Onboarding state (Redis/Mongo), parse & embed resumes for Vector Search, and convert Markdown/LaTeX to ATS-friendly PDFs.",
   "version": "1.0.0",
   "disabled": false
 }

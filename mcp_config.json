@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "local-mcp-service": {
+      "command": "python3",
+      "args": [
+        "/Users/manthanmanthan/job-assistant/mcp_server.py"
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 ---
 name: email-drafter-agent
 description: Drafts highly tailored, professional outreach emails for job applications or referrals based on a JSON input context.
-model: pro
+model: flash
 enable_mcp_tools: false
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: company-contact-finder
 description: Searches the web for a company's public career pages, and official application emails or phone numbers, outputting structured JSON.
-model: pro
+model: flash
 enable_mcp_tools: false
 ---
 

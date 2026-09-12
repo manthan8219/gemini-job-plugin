@@ -51,7 +51,20 @@ You may delegate this workflow to a subagent. However, because standard subagent
 3. Call `markOnboardingCompleted` to permanently flag the user as fully onboarded in Redis and MongoDB.
 4. Wait for the tool to confirm it was successful.
 
-### Step 5: Confirmation & Transition
-1. Confirm to the user that their profile has been successfully registered.
+### Step 5: Local Repository Audit & Portfolio Extraction (Final Onboarding Step)
+As the final step of onboarding, proactively offer to audit their local repositories to ground their resume in real code and verified metrics:
+1. Ask the user:
+   > *"Would you like to connect your local repositories to extract your real-world engineering accomplishments and metrics? This powers our resume builder with verified achievements directly from your code."*
+2. Request:
+   - Their **GitHub username** (and primary commit email/author name).
+   - The **paths to their local repositories** on their machine (or offer to discover repos in their workspace/projects folder).
+3. If the user provides their details, immediately trigger the `repo-portfolio-builder` skill:
+   - Spawns concurrent `repo-work-extractor` subagents for each repository.
+   - Extracts deep code diffs, data schemas, architectures, and XYZ metrics.
+   - Saves the resulting JSON into `.career/repos-extracted.json`.
+4. If the user prefers to skip for now, inform them they can run `/career-portfolio` at any time.
+
+### Step 6: Confirmation & Transition
+1. Confirm to the user that onboarding is 100% complete.
 2. Add a friendly hint telling the user: *"Hint: Type `/career-connect-socials` to link your Discord or Telegram for real-time job application updates!"*
-3. Seamlessly pivot back to their original request (e.g., if they uploaded a resume for onboarding, you can now transition into using that same resume for the `resume-builder` skill).
+3. Seamlessly pivot back to their original career request (e.g. tailoring a resume with the `resume-builder` skill).

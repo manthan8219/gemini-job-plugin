@@ -132,10 +132,31 @@ function inspectRepo(repoPath, searchTokens = []) {
       lastCommitDate = execSync('git log -1 --format="%ad" --date=short', { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
     } catch (e) {}
 
+    let tier = 'Unattributed';
+    let recommendedModel = null;
+    let strategy = 'Omit or manual include';
+
+    if (authorCommits >= 50) {
+      tier = 'Tier 1 (Flagship / Core)';
+      recommendedModel = 'pro';
+      strategy = 'Deep forensic code & diff inspection';
+    } else if (authorCommits >= 10) {
+      tier = 'Tier 2 (Contributing / Tool)';
+      recommendedModel = 'flash';
+      strategy = 'Targeted feature and architecture extraction';
+    } else if (authorCommits > 0) {
+      tier = 'Tier 3 (Spike / POC)';
+      recommendedModel = 'fast_catalog';
+      strategy = 'Tech stack tagging & skill validation';
+    }
+
     return {
       name: path.basename(repoPath),
       path: repoPath,
       remote_url: remoteUrl || null,
+      tier: tier,
+      recommended_model: recommendedModel,
+      extraction_strategy: strategy,
       author_commits: authorCommits,
       total_commits: totalCommits,
       last_commit_date: lastCommitDate,
@@ -224,13 +245,21 @@ function scan(options = {}) {
     }
   }
 
-  // Sort by author_commits descending, then total_commits descending
-  results.sort((a, b) => b.author_commits - a.author_commits || b.total_commits - a.total_commits);
+  const tier1 = results.filter(r => r.tier.startsWith('Tier 1'));
+  const tier2 = results.filter(r => r.tier.startsWith('Tier 2'));
+  const tier3 = results.filter(r => r.tier.startsWith('Tier 3'));
+  const unattributed = results.filter(r => r.tier === 'Unattributed');
 
   return {
     searched_authors: authors,
     total_repos_found: results.length,
     repos_with_author_commits: results.filter(r => r.has_user_commits).length,
+    tier_summary: {
+      tier1_flagship_count: tier1.length,
+      tier2_contributing_count: tier2.length,
+      tier3_spikes_count: tier3.length,
+      unattributed_count: unattributed.length
+    },
     repositories: results
   };
 }
@@ -257,17 +286,30 @@ if (require.main === module) {
   if (jsonOutput || !process.stdout.isTTY) {
     console.log(JSON.stringify(scanResult, null, 2));
   } else {
-    console.log(`\n🔍 Found ${scanResult.total_repos_found} git repositories on your system:`);
-    console.log(`Filtered across author aliases: [${scanResult.searched_authors.join(', ')}]`);
-    console.log('='.repeat(85));
-    for (const repo of scanResult.repositories) {
-      const commitTag = repo.has_user_commits ? `[${repo.author_commits} commits by author]` : `[0 author commits (${repo.total_commits} total)]`;
-      const techTag = repo.technologies.length ? `(${repo.technologies.join(', ')})` : '';
-      console.log(`• ${repo.name.padEnd(28)} ${commitTag.padEnd(28)} ${techTag}`);
-      console.log(`  Path: ${repo.path}`);
-      if (repo.remote_url) console.log(`  Remote: ${repo.remote_url}`);
-    }
-    console.log('='.repeat(85));
+    console.log(`\n🔍 Found ${scanResult.total_repos_found} git repositories (Author filter: ${scanResult.searched_authors.join(', ')}):`);
+    console.log(`📊 Tier Summary: ${scanResult.tier_summary.tier1_flagship_count} Flagship (Tier 1) | ${scanResult.tier_summary.tier2_contributing_count} Mid-tier (Tier 2) | ${scanResult.tier_summary.tier3_spikes_count} Spikes (Tier 3)`);
+    console.log('='.repeat(95));
+
+    const printGroup = (title, items) => {
+      if (!items.length) return;
+      console.log(`\n${title}:`);
+      console.log('-'.repeat(95));
+      for (const repo of items) {
+        const commitTag = `[${repo.author_commits} commits]`;
+        const techTag = repo.technologies.length ? `(${repo.technologies.join(', ')})` : '';
+        console.log(`• ${repo.name.padEnd(26)} ${commitTag.padEnd(16)} Model: ${repo.recommended_model.padEnd(14)} ${techTag}`);
+        console.log(`  Path: ${repo.path}`);
+      }
+    };
+
+    const t1 = scanResult.repositories.filter(r => r.tier.startsWith('Tier 1'));
+    const t2 = scanResult.repositories.filter(r => r.tier.startsWith('Tier 2'));
+    const t3 = scanResult.repositories.filter(r => r.tier.startsWith('Tier 3'));
+
+    printGroup('🌟 TIER 1: FLAGSHIP / CORE (Deep Forensic Inspection -> Pro Model)', t1);
+    printGroup('🛠️  TIER 2: CONTRIBUTING / TOOLS (Targeted Extraction -> Flash Model)', t2);
+    printGroup('🧪 TIER 3: SPIKES / EXPERIMENTS (Quick Skill Tagging -> Fast Catalog)', t3);
+    console.log('='.repeat(95));
   }
 }
 

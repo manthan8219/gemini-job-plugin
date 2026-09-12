@@ -11,11 +11,14 @@ Use this skill when the user wants to audit their local git repositories, extrac
 
 ## Workflow Overview
 
-### Step 1: Gather Inputs
-1. Ask the user for:
-   - Their **GitHub username** (and any alternate author names or commit emails they may have used).
-   - The **list of local repository paths** on their machine to inspect (e.g., `/Users/.../project-a`, `/Users/.../project-b`).
-2. Verify each path exists and contains a `.git` directory.
+### Step 1: Gather Inputs & Fast Auto-Discovery
+1. Ask the user for their **GitHub username** (and any alternate author names or commit emails).
+2. Offer fast auto-discovery:
+   - Run `node scripts/scan_local_repos.js` (or invoke `local-repo-scanner`) to automatically inventory local git repositories across standard developer folders (`~`, `~/code`, `~/projects`, `~/workspace`, `~/Documents`).
+   - The scanner filters for repositories containing verified commits authored by the user.
+3. Present the discovered repositories to the user:
+   - Allow the user to select which repositories to inspect (or provide custom repo paths).
+4. Verify each selected path exists and contains a `.git` directory.
 
 ---
 

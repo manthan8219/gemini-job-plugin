@@ -5,7 +5,6 @@ const { execSync } = require('child_process');
 // Directories to skip during scanning
 const IGNORED_DIR_NAMES = new Set([
   'node_modules',
-  '.git',
   '.cache',
   '.npm',
   '.nvm',
@@ -34,10 +33,14 @@ const IGNORED_DIR_NAMES = new Set([
   'venv',
   'env',
   '.next',
-  '.nuxt'
+  '.nuxt',
+  'vendor',
+  'bower_components'
 ]);
 
-function getSessionAuthor() {
+function getSessionAuthors() {
+  const authors = new Set();
+
   const sessionPaths = [
     path.join(process.cwd(), '.job-assistant-session.json'),
     path.join(process.env.USERPROFILE || process.env.HOME || '', '.job-assistant-session.json')
@@ -47,21 +50,28 @@ function getSessionAuthor() {
     if (fs.existsSync(p)) {
       try {
         const data = JSON.parse(fs.readFileSync(p, 'utf8'));
-        if (data.email || data.first_name) {
-          return data.email || data.first_name;
+        if (data.email) authors.add(data.email.toLowerCase());
+        if (data.first_name) authors.add(data.first_name.toLowerCase());
+        if (Array.isArray(data.work_emails)) {
+          data.work_emails.forEach(e => authors.add(e.toLowerCase()));
+        } else if (typeof data.work_emails === 'string') {
+          data.work_emails.split(',').map(s => s.trim()).forEach(e => authors.add(e.toLowerCase()));
         }
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
     }
   }
 
   try {
     const gitUser = execSync('git config --global user.name', { encoding: 'utf8' }).trim();
-    if (gitUser) return gitUser;
+    if (gitUser) authors.add(gitUser.toLowerCase());
   } catch (e) {}
 
-  return null;
+  try {
+    const gitEmail = execSync('git config --global user.email', { encoding: 'utf8' }).trim();
+    if (gitEmail) authors.add(gitEmail.toLowerCase());
+  } catch (e) {}
+
+  return Array.from(authors);
 }
 
 function detectTechStack(repoPath) {
@@ -69,7 +79,7 @@ function detectTechStack(repoPath) {
   try {
     if (fs.existsSync(path.join(repoPath, 'pom.xml'))) techs.push('Java (Maven)');
     if (fs.existsSync(path.join(repoPath, 'build.gradle')) || fs.existsSync(path.join(repoPath, 'build.gradle.kts'))) techs.push('Java/Kotlin (Gradle)');
-    if (fs.existsSync(path.join(repoPath, 'package.json'))) techs.push('Node.js / JavaScript / TypeScript');
+    if (fs.existsSync(path.join(repoPath, 'package.json'))) techs.push('Node.js / TypeScript');
     if (fs.existsSync(path.join(repoPath, 'go.mod'))) techs.push('Go');
     if (fs.existsSync(path.join(repoPath, 'Cargo.toml'))) techs.push('Rust');
     if (fs.existsSync(path.join(repoPath, 'requirements.txt')) || fs.existsSync(path.join(repoPath, 'pyproject.toml')) || fs.existsSync(path.join(repoPath, 'Pipfile'))) techs.push('Python');
@@ -80,7 +90,7 @@ function detectTechStack(repoPath) {
   return techs;
 }
 
-function inspectRepo(repoPath, author) {
+function inspectRepo(repoPath, searchTokens = []) {
   try {
     const remoteUrl = execSync('git config --get remote.origin.url', { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim();
     let totalCommits = 0;
@@ -89,38 +99,13 @@ function inspectRepo(repoPath, author) {
     } catch (e) {}
 
     let authorCommits = 0;
-    let authorMatch = null;
-    if (author) {
-      try {
-        authorCommits = parseInt(execSync(`git rev-list --count --author="${author}" HEAD`, { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim(), 10) || 0;
-        if (authorCommits > 0) authorMatch = author;
-      } catch (e) {}
-    }
+    const matchedAuthors = new Set();
 
-    // Smart author matching
-    const searchTokens = [];
-    if (author) {
-      searchTokens.push(author.toLowerCase());
-      if (author.includes('@')) {
-        searchTokens.push(author.split('@')[0].toLowerCase());
-      }
-    }
-    // Also add first name if available in session
-    const sessionPaths = [
-      path.join(process.cwd(), '.job-assistant-session.json'),
-      path.join(process.env.USERPROFILE || process.env.HOME || '', '.job-assistant-session.json')
-    ];
-    for (const p of sessionPaths) {
-      if (fs.existsSync(p)) {
-        try {
-          const d = JSON.parse(fs.readFileSync(p, 'utf8'));
-          if (d.first_name) searchTokens.push(d.first_name.toLowerCase());
-        } catch (e) {}
-      }
-    }
+    // Prepare search token list
+    const tokens = searchTokens.map(t => t.toLowerCase()).filter(t => t.length >= 3);
 
     try {
-      const topAuthors = execSync('git log -n 50 --pretty=format:"%an <%ae>"', { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] })
+      const topAuthors = execSync('git log -n 80 --pretty=format:"%an <%ae>"', { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] })
         .split('\n')
         .map(s => s.trim())
         .filter(Boolean);
@@ -128,14 +113,14 @@ function inspectRepo(repoPath, author) {
       const uniqueAuthors = [...new Set(topAuthors)];
       for (const ua of uniqueAuthors) {
         const lowerUa = ua.toLowerCase();
-        const matches = searchTokens.some(tok => tok.length > 2 && lowerUa.includes(tok));
-        if (matches) {
+        const isMatch = tokens.some(tok => lowerUa.includes(tok));
+        if (isMatch) {
           const authorName = ua.split(' <')[0];
           try {
             const count = parseInt(execSync(`git rev-list --count --author="${authorName}" HEAD`, { cwd: repoPath, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim(), 10) || 0;
             if (count > 0) {
               authorCommits += count;
-              authorMatch = authorMatch ? `${authorMatch}, ${ua}` : ua;
+              matchedAuthors.add(ua);
             }
           } catch (e) {}
         }
@@ -156,14 +141,14 @@ function inspectRepo(repoPath, author) {
       last_commit_date: lastCommitDate,
       technologies: detectTechStack(repoPath),
       has_user_commits: authorCommits > 0,
-      matched_author: authorMatch
+      matched_author: Array.from(matchedAuthors).join(', ') || null
     };
   } catch (e) {
     return null;
   }
 }
 
-function findGitRepos(startDir, maxDepth = 2, currentDepth = 0) {
+function findGitRepos(startDir, maxDepth = 3, currentDepth = 0) {
   let repos = [];
   if (currentDepth > maxDepth) return repos;
 
@@ -174,18 +159,17 @@ function findGitRepos(startDir, maxDepth = 2, currentDepth = 0) {
     return repos;
   }
 
-  // Check if current directory itself has .git
-  const hasGit = entries.some(e => e.isDirectory() && e.name === '.git');
+  // Any directory that contains a .git folder or file IS a git repository!
+  const hasGit = entries.some(e => e.name === '.git');
   if (hasGit && currentDepth > 0) {
     repos.push(startDir);
-    // Don't recurse deeper into a git repository
+    // Prune: do not scan inside an existing git repo
     return repos;
   }
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     if (entry.name.startsWith('.') && entry.name !== '.git') {
-      // Skip hidden folders except search roots
       continue;
     }
     if (IGNORED_DIR_NAMES.has(entry.name)) continue;
@@ -200,23 +184,32 @@ function findGitRepos(startDir, maxDepth = 2, currentDepth = 0) {
 function scan(options = {}) {
   const home = process.env.HOME || process.env.USERPROFILE || '';
   const searchRoots = options.searchRoots || [
-    home,
-    path.join(home, 'code'),
-    path.join(home, 'projects'),
+    path.join(home, 'Desktop'),
+    path.join(home, 'Documents'),
     path.join(home, 'Projects'),
+    path.join(home, 'projects'),
+    path.join(home, 'code'),
     path.join(home, 'workspace'),
     path.join(home, 'Workspace'),
     path.join(home, 'Development'),
-    path.join(home, 'Documents')
+    path.join(home, 'Developer'),
+    home
   ];
 
-  const author = options.author || getSessionAuthor();
+  let authors = [];
+  if (options.author) {
+    authors = Array.isArray(options.author) ? options.author : options.author.split(',').map(s => s.trim());
+  } else {
+    authors = getSessionAuthors();
+  }
+
   const repoPaths = new Set();
 
   for (const root of searchRoots) {
     if (fs.existsSync(root)) {
-      const maxDepth = (root === home) ? 1 : 2; // Keep home directory scan shallow (depth 1) for speed
-      const found = findGitRepos(root, maxDepth);
+      // Home directory depth 1 to avoid scanning everything; subfolders depth 3
+      const depth = (root === home) ? 1 : 3;
+      const found = findGitRepos(root, depth);
       for (const p of found) {
         repoPaths.add(p);
       }
@@ -225,7 +218,7 @@ function scan(options = {}) {
 
   const results = [];
   for (const rPath of repoPaths) {
-    const inspected = inspectRepo(rPath, author);
+    const inspected = inspectRepo(rPath, authors);
     if (inspected) {
       results.push(inspected);
     }
@@ -235,7 +228,7 @@ function scan(options = {}) {
   results.sort((a, b) => b.author_commits - a.author_commits || b.total_commits - a.total_commits);
 
   return {
-    searched_author: author,
+    searched_authors: authors,
     total_repos_found: results.length,
     repos_with_author_commits: results.filter(r => r.has_user_commits).length,
     repositories: results
@@ -245,35 +238,36 @@ function scan(options = {}) {
 // CLI Execution
 if (require.main === module) {
   const args = process.argv.slice(2);
-  let authorArg = null;
+  let authors = [];
   let jsonOutput = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--author' && args[i + 1]) {
-      authorArg = args[i + 1];
+    if ((args[i] === '--author' || args[i] === '--emails') && args[i + 1]) {
+      authors = authors.concat(args[i + 1].split(',').map(s => s.trim()));
       i++;
     } else if (args[i] === '--json') {
       jsonOutput = true;
-    } else if (!args[i].startsWith('--') && !authorArg) {
-      authorArg = args[i];
+    } else if (!args[i].startsWith('--')) {
+      authors.push(args[i]);
     }
   }
 
-  const scanResult = scan({ author: authorArg });
+  const scanResult = scan({ author: authors.length > 0 ? authors : null });
 
   if (jsonOutput || !process.stdout.isTTY) {
     console.log(JSON.stringify(scanResult, null, 2));
   } else {
-    console.log(`\n🔍 Found ${scanResult.total_repos_found} git repositories (Author filter: "${scanResult.searched_author || 'None'}"):`);
-    console.log('='.repeat(75));
+    console.log(`\n🔍 Found ${scanResult.total_repos_found} git repositories on your system:`);
+    console.log(`Filtered across author aliases: [${scanResult.searched_authors.join(', ')}]`);
+    console.log('='.repeat(85));
     for (const repo of scanResult.repositories) {
-      const commitTag = repo.has_user_commits ? `[${repo.author_commits} commits by author]` : `[0 user commits (${repo.total_commits} total)]`;
+      const commitTag = repo.has_user_commits ? `[${repo.author_commits} commits by author]` : `[0 author commits (${repo.total_commits} total)]`;
       const techTag = repo.technologies.length ? `(${repo.technologies.join(', ')})` : '';
-      console.log(`• ${repo.name.padEnd(25)} ${commitTag.padEnd(25)} ${techTag}`);
+      console.log(`• ${repo.name.padEnd(28)} ${commitTag.padEnd(28)} ${techTag}`);
       console.log(`  Path: ${repo.path}`);
       if (repo.remote_url) console.log(`  Remote: ${repo.remote_url}`);
     }
-    console.log('='.repeat(75));
+    console.log('='.repeat(85));
   }
 }
 

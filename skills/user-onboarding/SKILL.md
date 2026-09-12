@@ -55,14 +55,19 @@ You may delegate this workflow to a subagent. However, because standard subagent
 As the final step of onboarding, proactively offer to audit their local repositories to ground their resume in real code and verified metrics:
 1. Ask the user:
    > *"Would you like to connect your local repositories to extract your real-world engineering accomplishments and metrics? This powers our resume builder with verified achievements directly from your code."*
-2. Request:
-   - Their **GitHub username** (and primary commit email/author name).
-   - The **paths to their local repositories** on their machine (or offer to discover repos in their workspace/projects folder).
-3. If the user provides their details, immediately trigger the `repo-portfolio-builder` skill:
+2. Request their contribution identities:
+   - Their **GitHub username** (e.g. `manthan8219`).
+   - Their **Personal email** (e.g. `user@gmail.com`).
+   - Their **Work email(s)** (e.g. `name@company.com`, including any past company emails, since workplace git commits are almost always authored under company email addresses).
+3. Auto-discover candidate repositories:
+   - Run `node scripts/scan_local_repos.js` to scan `~/Desktop`, `~/Projects`, `~/code`, `~/Documents`, and home directory for any folder containing `.git`.
+   - The scanner checks author commits against all provided personal and work email aliases.
+   - Present the detected repositories to the user to confirm or add additional paths.
+4. If confirmed, trigger the `repo-portfolio-builder` skill:
    - Spawns concurrent `repo-work-extractor` subagents for each repository.
-   - Extracts deep code diffs, data schemas, architectures, and XYZ metrics.
-   - Saves the resulting JSON into `.career/repos-extracted.json`.
-4. If the user prefers to skip for now, inform them they can run `/career-portfolio` at any time.
+   - Performs deep code reading, schema analysis, and XYZ metric extraction.
+   - Saves the resulting JSON chunks into `.career/repos-extracted.json`.
+5. If the user prefers to skip for now, inform them they can run `/career-portfolio` at any time.
 
 ### Step 6: Confirmation & Transition
 1. Confirm to the user that onboarding is 100% complete.

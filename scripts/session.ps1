@@ -5,7 +5,12 @@ if ([string]::IsNullOrWhiteSpace($input_data)) {
 }
 try {
     $payload = $input_data | ConvertFrom-Json
-    $workspace = $payload.workspacePaths[0]
+    $workspace = ""
+    if ($payload.workspacePaths -and $payload.workspacePaths.Count -gt 0) {
+        $workspace = $payload.workspacePaths[0]
+    } else {
+        $workspace = (Get-Location).Path
+    }
     $session_file = Join-Path $workspace ".job-assistant-session.json"
     
     if (Test-Path $session_file) {
@@ -14,17 +19,28 @@ try {
         $email = $session_data.email
         
         if ($user_id -and $email) {
-            $msg = "SYSTEM CACHE: The current logged-in user is User ID: $user_id, Email: $email."
+            $msg = "[SYSTEM CACHE: The current logged-in user is User ID: $user_id, Email: $email.]"
             $output = @{
                 injectSteps = @(
-                    @{ ephemeralMessage = $msg }
+                    @{ userMessage = $msg }
                 )
             }
             $output | ConvertTo-Json -Depth 10 -Compress | Write-Output
             exit
         }
+    } else {
+        $msg = "[DEBUG: Session script ran, but could not find session file at: $session_file]"
+        $output = @{
+            injectSteps = @(
+                @{ userMessage = $msg }
+            )
+        }
+        $output | ConvertTo-Json -Depth 10 -Compress | Write-Output
+        exit
     }
 } catch {
-    # Fail silently and output empty JSON
+    $msg = "[DEBUG: Session script crashed: $_]"
+    $output = @{ injectSteps = @( @{ userMessage = $msg } ) }
+    $output | ConvertTo-Json -Depth 10 -Compress | Write-Output
+    exit
 }
-Write-Output "{}"

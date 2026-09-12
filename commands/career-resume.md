@@ -1,5 +1,5 @@
 ---
-name: resume
+name: career-resume
 description: Quickly trigger the resume builder for a specific job
 ---
 

@@ -2,10 +2,16 @@
 
 ## GLOBAL ONBOARDING POLICY (GATEKEEPER)
 Before executing ANY career task, workflow, or skill (such as building a resume), you MUST verify if the user is authenticated.
-To verify, check if the system cache has injected an **Email Address** into your current conversation memory.
-- If the email is missing (which means the local session file does not exist), you MUST pause their request and force them to log in by asking: "Please provide your email address to log in."
-- If they are a new user or not registered, you must IMMEDIATELY execute the `user-onboarding` skill to register them.
-Do not proceed with any career tasks until their email is verified and a session is established.
+To verify, use your `run_command` tool to execute: `node scripts/check_auth.js`. 
+- If the output is `[AUTHENTICATED]`, you MUST then use your `checkOnboardingCompleted` MCP tool to verify if their profile setup is finished.
+  - If the tool indicates onboarding is NOT completed, you MUST IMMEDIATELY execute the `user-onboarding` skill to gather their details.
+  - If the tool indicates onboarding IS completed, proceed with their original request.
+- If the output is `[UNAUTHENTICATED]`, you MUST pause their request and explain what the Career Assistant does.
+- To log them in securely, first give them this exact clickable link in the chat: `https://job-tools.onrender.com/auth/login?redirect_uri=http://localhost:4132/callback`
+- Instruct them to click the link to authenticate in their browser.
+- IMMEDIATELY after sending them the link, run `node scripts/oauth_login.js` using your `run_command` tool to wait for their callback.
+- Wait for the command to finish. 
+- Once it finishes successfully, use `view_file` to read the `.job-assistant-session.json` file. Warmly welcome the user back using their `first_name`, and then proceed with their original career task!
 
 ---
 

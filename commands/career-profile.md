@@ -1,5 +1,5 @@
 ---
-name: profile
+name: career-profile
 description: View your currently loaded profile and session data
 ---
 

@@ -8,7 +8,7 @@ description: Handles the smart, conversational registration of new users by extr
 Use this skill whenever a new or unregistered user attempts to use the career toolkit, or when triggered by the global Gatekeeper rule.
 
 ## Model Usage
-This is a straightforward, conversational task. To save resources and reduce latency, execute this skill by delegating it to a subagent with the `Model` argument set to `flash`.
+You may delegate this workflow to a subagent. However, because standard subagents do not inherit MCP tools by default, you **MUST** first use your `define_subagent` tool to define a specialized subagent (e.g., named `onboarding-agent`) and explicitly set `"enable_mcp_tools": true`. Then, invoke that subagent to handle this workflow.
 
 ## Workflow Overview
 
@@ -17,34 +17,41 @@ This is a straightforward, conversational task. To save resources and reduce lat
 2. If the user provides an email and is already registered, check if their onboarding is complete. If so, welcome them back, exit this skill, and resume their original request.
 3. If the user is NOT registered, use the `user-creation` skill to create their user record first, then proceed to Step 1.
 
-### Step 1: Smart Data Collection
-1. Greet the user warmly and explain that you need to set up their profile before proceeding.
-2. Tell the user they can **EITHER**:
-   - Provide their **First Name**, **Last Name**, and **Email Address** directly in the chat.
-   - **OR** simply upload their current resume, and you will extract the information for them.
-3. **STOP** and wait for the user to reply or upload a file.
+### Step 1: Request Resume for Pre-filling
+1. Greet the user warmly and explain that you need to set up their Job Profile before proceeding.
+2. Ask the user to **upload their current resume**. Explain that you will use it to automatically pre-fill their profile preferences (target titles, experience, skills, etc.) to save them time!
+3. **STOP** and wait for the user to upload a file.
 
-### Step 2: Resume Analysis & Gap Filling
-1. If the user provided a resume, analyze it immediately. 
-2. Extract the First Name, Last Name, and Email.
-3. Check for missing fields. If any required information is missing, ask the user ONLY for the pending information. 
-4. Wait for them to provide the missing details.
+### Step 2: Resume Analysis & Pre-filling
+1. Once the resume is uploaded, analyze it thoroughly.
+2. Attempt to extract or infer the following fields based on the resume:
+   - **Target Titles** (e.g., Software Engineer, Product Manager based on past roles)
+   - **Locations** (Based on their current city or past roles)
+   - **Years of Experience** (Calculate total years of relevant experience)
+   - **Must-Have Skills** (Top 5-10 core skills from their resume)
+   - **Target Industries** (Inferred from past companies)
+   - **Work Arrangements** (Default to Remote, Hybrid, On-Site)
+   - **Employment Types** (Default to Full-time)
+   - **Requires Sponsorship** (Ask them directly, default to unknown)
+   - **Expected Salary** (Ask them directly)
 
-### Step 3: Database Sync & Session Storage
-1. Once you have all the required details, call `register` or `createUser` (if applicable) to save their profile.
-2. IMPORTANT: You must save their session locally so they stay logged in. Write a file named `.job-assistant-session.json` in the root of the active workspace. The file must contain valid JSON with the `userId`, `email`, and any returned authentication tokens or frequent user info. Example:
-   ```json
-   {
-     "userId": "12345",
-     "email": "user@example.com",
-     "first_name": "Manthan",
-     "token": "eyJhb...",
-     "refresh_token": "def456..."
-   }
-   ```
+### Step 3: Present Draft Profile & Ask for Confirmation
+1. Present the extracted profile to the user in a clean, easy-to-read Markdown list.
+2. Explicitly highlight the fields you were able to guess from the resume, and point out any missing text fields (like Salary Expectations).
+3. **Interactive Enums:** For fields that have strict options, you MUST use your built-in `ask_question` tool to pop open an interactive UI for the user:
+   - Use `ask_question` with `is_multi_select: true` to ask for **Work Arrangements** (Remote, Hybrid, On-site).
+   - Use `ask_question` with `is_multi_select: true` to ask for **Employment Types** (Full-time, Contract, Part-time).
+   - Use `ask_question` with `is_multi_select: false` to ask for **Visa Sponsorship** (Yes, No).
+4. After collecting all the data, ask the user to review the drafted profile. Give them the option to **confirm it as-is**, or **provide changes** to any of the text answers via normal chat.
+5. If the user provides corrections, update the profile and present the final version.
+
+### Step 4: Database Sync & Session Storage
+1. Once the user confirms the profile is correct, call the appropriate MCP tool to save their complete Job Profile.
+2. IMPORTANT: You must save their session locally so they stay logged in. Write a file named `.job-assistant-session.json` in the root of the active workspace. The file must contain valid JSON with the `userId`, `email`, and the newly captured profile data.
 3. Call `markOnboardingCompleted` to permanently flag the user as fully onboarded in Redis and MongoDB.
 4. Wait for the tool to confirm it was successful.
 
-### Step 4: Confirmation & Transition
+### Step 5: Confirmation & Transition
 1. Confirm to the user that their profile has been successfully registered.
-2. Seamlessly pivot back to their original request (e.g., if they uploaded a resume for onboarding, you can now transition into using that same resume for the `resume-builder` skill).
+2. Add a friendly hint telling the user: *"Hint: Type `/career-connect-socials` to link your Discord or Telegram for real-time job application updates!"*
+3. Seamlessly pivot back to their original request (e.g., if they uploaded a resume for onboarding, you can now transition into using that same resume for the `resume-builder` skill).

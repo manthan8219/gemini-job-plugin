@@ -1,5 +1,5 @@
 ---
-name: draft-email
+name: career-email
 description: Draft a tailored professional outreach email or cover letter
 ---
 

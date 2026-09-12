@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "job-tools-mcp-service": {
-      "serverUrl": "https://job-tools-ten.vercel.app/api/mcp"
+      "serverUrl": "https://job-tools.onrender.com/sse"
     }
   }
 }

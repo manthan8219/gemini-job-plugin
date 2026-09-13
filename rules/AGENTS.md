@@ -31,3 +31,16 @@ To verify, use your `run_command` tool to execute: `node scripts/check_auth.js`.
    - Every bullet should start with a strong action verb and include quantifiable outcomes (% increase, $ saved, latency reduced, users onboarded).
 3. **Keyword Alignment**: Faithfully align candidate experience with target Job Description keywords without fabricating claims.
 4. **Tone**: Maintain a professional, concise, and achievements-focused tone.
+
+---
+
+## Job Discovery & Resume Scoring Guidelines
+Whenever jobs are retrieved from `searchJobsDatabase` or `scrapeJobs`:
+1. **Mandatory Automated Scoring**: You MUST evaluate and score each and every retrieved job against the candidate's resume and verified profile. Never present a raw list of jobs without match scores.
+2. **Score Column in Job Table**: In the matched openings table, always include a **Fit Score** column (e.g. `🟢 92% (Strong Fit)`, `🟡 81% (Competitive)`, `🟠 65% (Moderate)`).
+3. **Strengths & Gaps Breakdown**: For each job presented, clearly indicate:
+   - **Strong Points**: What specific skills, scale, or experience make the candidate a strong fit.
+   - **Weaknesses & Gaps Left**: What tools, scale requirements, or keywords are missing or left to address.
+4. **Ranking**: Always rank the opportunities descending by their Fit Score so the candidate sees the most relevant roles first.
+5. **Next Steps**: Offer immediate access to `/career-score [job]` for the full JSON/5-dimension breakdown and `/career-resume` to tailor the resume to close those specific gaps.
+

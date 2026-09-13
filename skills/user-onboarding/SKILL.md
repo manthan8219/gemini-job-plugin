@@ -64,9 +64,11 @@ As the final step of onboarding, proactively offer to audit their local reposito
    - The scanner checks author commits against all provided personal and work email aliases.
    - Present the detected repositories to the user to confirm or add additional paths.
 4. If confirmed, trigger the `repo-portfolio-builder` skill:
-   - Spawns concurrent `repo-work-extractor` subagents for each repository.
+   - For each repository, checks `checkRepositoryScraped` to verify if it was previously analyzed; skips re-analysis if no new commits exist since the last scrape.
+   - For repositories needing analysis, spawns concurrent `repo-work-extractor` subagents.
    - Performs deep code reading, schema analysis, and XYZ metric extraction.
-   - Saves the resulting JSON chunks into `.career/repos-extracted.json`.
+   - Calls the `saveUserWork` MCP tool for every analyzed repository to persist the forensics in PostgreSQL and Redis.
+   - Saves the aggregated JSON chunks into `.career/repos-extracted.json`.
 5. If the user prefers to skip for now, inform them they can run `/career-portfolio` at any time.
 
 ### Step 6: Confirmation, What's Next & Job Search Transition

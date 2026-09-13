@@ -1,11 +1,11 @@
 ---
 name: repo-portfolio-builder
-description: Collects GitHub username and local repositories, spawns concurrent repo-work-extractor subagents to perform deep code and git forensics, and aggregates rich JSON chunks of all contributions.
+description: Audits local repositories, checks scrape history with checkRepositoryScraped, skips unchanged repositories, runs forensic extraction, and saves work to PostgreSQL/Redis via saveUserWork.
 ---
 
 # Repository Portfolio & Deep Work Extraction Skill
 
-Use this skill when the user wants to audit their local git repositories, extract all engineering work they've done across codebases, and produce rich, structured JSON chunks of their contributions.
+Use this skill when the user wants to audit their local git repositories, extract all engineering work they've done across codebases, and store rich, structured JSON chunks of their contributions.
 
 ---
 
@@ -15,16 +15,49 @@ Use this skill when the user wants to audit their local git repositories, extrac
 1. Ask the user for their contribution identities:
    - **GitHub username** (e.g., `manthan8219`)
    - **Personal email** (e.g., `manthanbhatia367@gmail.com`)
-   - **Work email(s)** (e.g., `name@company.com`, including past employer emails, since production commits are typically authored under company email addresses).
+   - **Work email(s)** (e.g., `name@company.com`, including past employer emails).
 2. Run fast auto-discovery:
    - Run `node scripts/scan_local_repos.js --emails "<comma,separated,emails>"` (or invoke `local-repo-scanner`) to automatically inventory all git repositories across `~/Desktop`, `~/Projects`, `~/code`, `~/workspace`, `~/Documents`, and home directories.
    - The scanner identifies all folders containing `.git` and filters for repositories with verified commits authored by any of the user's identities.
-3. Present the discovered repositories to the user:
-   - Allow the user to select which repositories to inspect (or provide custom repo paths).
-4. Verify each selected path exists and contains a `.git` directory.
+3. Present the discovered candidate repositories to the user to confirm which ones to inspect.
 
-### Step 2: Apply Repository Tiering Strategy
-Classify repositories based on commit volume to optimize token usage and extraction fidelity:
+---
+
+### Step 2: Pre-Scraping Check & Incremental Commit Filter (Mandatory Gatekeeper)
+Before scanning or analyzing ANY repository, verify whether it has already been scraped and analyzed:
+
+1. **Check Scrape Status**:
+   - Call the `checkRepositoryScraped` MCP tool (or run `node scripts/sync_repo_work.js --check <repoName> --path <repoPath> --author "<author>"`):
+     ```json
+     {
+       "repositoryId": "<repository_name>",
+       "userId": "<user_uuid>"
+     }
+     ```
+   - *(Note: If `checkRepositoryScraped` is unavailable or returning 404, fallback to `getUserWork` to query existing records in Redis/PostgreSQL).*
+
+2. **Evaluate Scrape State & Commit Timestamps**:
+   - **Case A: `isScraped === false` (or not found)**:
+     - The repository is fresh. Proceed to **Step 3** for full forensic extraction.
+   - **Case B: `isScraped === true`**:
+     - Extract `lastScrapedAt` (or `latestCommitDate` / `updatedAt` from previous analysis).
+     - Query local git log for any new commits authored by the user after that timestamp:
+       ```bash
+       git -C "<repoPath>" log --after="<lastScrapedAt>" --author="<author>" --oneline
+       ```
+     - **If NO new commits exist**:
+       - **SKIP ANALYSIS**. Do not spawn extraction subagents.
+       - Notify the user:
+         > *"Repository **<repository_name>** has already been analyzed (last scraped: <date>). No new commits found since then. Skipping re-analysis."*
+     - **If NEW commits exist**:
+       - Notify the user:
+         > *"Repository **<repository_name>** was previously analyzed on <date>, but has <count> new commit(s). Re-analyzing to capture latest work..."*
+       - Proceed to **Step 3** for re-analysis.
+
+---
+
+### Step 3: Apply Repository Tiering Strategy
+Classify candidate repositories that need analysis based on commit volume:
 
 | Tier | Commit Criteria | Extraction Strategy | Recommended Subagent Model | Role on Resume |
 | :--- | :--- | :--- | :--- | :--- |
@@ -49,32 +82,45 @@ Spawn subagents concurrently for the selected Tier 1 and Tier 2 repositories usi
 
 ---
 
-### Step 3: Collect & Aggregate JSON Chunks
-1. Wait for all subagents to finish their forensic analysis.
-2. Parse the JSON response returned by each subagent.
-3. Validate that each repo chunk contains:
+### Step 4: Collect & Validate Forensic JSON Chunks
+1. Wait for all active subagents to finish.
+2. Parse each subagent's returned JSON:
    - `repository_name`
    - `repository_path`
    - `remote_url`
+   - `tier` (`flagship` | `contributing` | `spike`)
    - `primary_languages`
-   - `technologies_detected`
-   - `timeline` (duration, dates, active days)
-   - `commits_summary` (total commits, lines added/deleted, key modules, top files)
+   - `technologies_detected` (frameworks, databases, infrastructure_and_cloud, libraries_and_tools)
+   - `timeline` (duration_formatted, first_commit_date, latest_commit_date, total_active_days)
+   - `commits_summary` (total_commits, lines_added, lines_deleted, files_modified, key_modules_touched, top_files_authored_or_modified)
    - `work_description` (system_overview, role_and_ownership, technical_challenges_solved)
    - `bullet_points` (Google XYZ formula)
-   - `most_effective_work_list` (top standout feats with descriptions and impact)
+   - `most_effective_work_list` (top standout engineering feats)
 
 ---
 
-### Step 4: Save & Present
-1. Aggregate all repository JSON chunks into an array under a master object:
-   ```json
-   {
-     "author": "<author_identity>",
-     "extracted_at": "<ISO timestamp>",
-     "total_repositories": 3,
-     "repositories": [ ... ]
-   }
-   ```
-2. Save the master JSON file to `.career/repos-extracted.json` in the active workspace.
-3. Present the structured JSON results to the user.
+### Step 5: Save & Sync via `saveUserWork` MCP Tool (Mandatory)
+Every time a repository scan/analysis completes, you MUST persist the results to PostgreSQL and Redis:
+
+1. **Invoke `saveUserWork` (Tool ID: `save-user-work`)**:
+   - For each extracted repository, call the `saveUserWork` MCP tool (or execute `node scripts/sync_repo_work.js --save <chunkFile>`):
+     ```json
+     {
+       "userId": "<user_uuid>",
+       "repositoryName": "<repository_name>",
+       "localPath": "<repository_path>",
+       "remoteUrl": "<remote_url>",
+       "tier": "flagship",
+       "primaryLanguages": ["Java", "SQL"],
+       "technologiesDetected": { ... },
+       "timeline": { ... },
+       "commitsSummary": { ... },
+       "workDescription": { ... },
+       "bulletPoints": [ ... ],
+       "mostEffectiveWorkList": [ ... ]
+     }
+     ```
+2. **Local File Persistence**:
+   - Save or update `.career/repos-extracted.json` in the active workspace as a local backup and offline reference.
+3. **Present Summary**:
+   - Present a concise summary of the newly saved and skipped repositories to the user.

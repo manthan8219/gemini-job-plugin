@@ -24,8 +24,17 @@ You have access to a suite of backend MCP tools through the `job-applier-mcp` se
 - **`searchCompanies` / `getCompanyDetails`**: Looks up company profiles, ATS platforms used, and active job listings.
 - **`getUserApplicationStats`**: Retrieves live application metrics (applications, interviews, offers, rejections).
 
+## 5. Repository Forensics & Work Portfolio Tools
+- **`checkRepositoryScraped`**: Checks if a specific repository has already been scraped and analyzed (`{ repositoryId, userId }`). Always check this before starting forensic analysis. If scraped, check for new commits since the last scrape date; skip re-analysis if no new commits exist.
+- **`saveUserWork`**: Persists or updates extracted repository work, git forensics, commit analytics, architecture summaries, and Google XYZ impact bullets in PostgreSQL and Redis. Must be invoked every time a repository scan/analysis completes.
+- **`getUserWork`**: Retrieves a candidate's specific repository work record by UUID or repository name (queries Redis cache first).
+- **`getUserWorkList` / `getFeaturedUserWork`**: Retrieves all candidate repository portfolio items with optional filtering by tier (`flagship`, `contributing`, `spike`), language, or featured status.
+
 ## Execution Rules
 - **Do not mock data**: If a tool is available, use it rather than pretending to save data.
-- **Chain tools logically**: Example: Check onboarding -> Ask questions -> Mark onboarding completed -> Proactively summarize profile & confirm job search -> Search jobs -> Tailor resume -> Convert MD to PDF.
+- **Chain tools logically**: Example: Check onboarding -> Ask questions -> Mark onboarding completed -> Check repository scraped -> Skip unchanged or extract -> Save user work via MCP -> Proactively summarize profile & confirm job search -> Search jobs -> Score jobs -> Tailor resume -> Convert MD to PDF.
+- **Pre-Scrape Verification**: Always check `checkRepositoryScraped` (or fallback `getUserWork`) before re-analyzing any codebase. If no commits were authored after `lastScrapedAt`, skip the repository.
+- **Mandatory Persistence**: Always call `saveUserWork` upon completing repository forensic analysis.
 - **Confirm Before Searching**: Always confirm the search criteria with the user before calling `searchJobsDatabase` or `scrapeJobs`.
+
 

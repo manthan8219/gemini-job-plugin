@@ -32,8 +32,45 @@ Use this skill when the user provides a job description (or link) and asks to bu
 
 ---
 
+### Step 2b: Existing Resume Reuse Check & Instant HR Pre-Screen (Mandatory)
+Before generating a brand-new resume from scratch, check whether an existing resume in the database or local workspace already qualifies:
+
+1. **Query Existing Resumes**:
+   - Call `getResumeForJob({ jobId })` if this request targets a specific job ID.
+   - Or call `getUserResumes` / `getLatestResume` to fetch the user's latest stored resumes.
+   - Or check `.career/tailored-resume.md` / `.career/resume.md`.
+
+2. **Evaluate Existing Resume via `hr-reviewer-agent`**:
+   If an existing resume is retrieved, pass it immediately to `hr-reviewer-agent` with the target Job Description:
+   ```json
+   {
+     "resume_content": "<Existing Resume Markdown>",
+     "job_description": "<Target JD>"
+   }
+   ```
+
+3. **Branch Decision**:
+   - **Case A: HR Passes Existing Resume (Score >= 85)**:
+     - **Reuse the existing resume!** Do not waste time or tokens regenerating what already works.
+     - Notify the user:
+       > *"🎯 Found an existing resume in your database that scored **<score>/100 (PASS)** for this role! It satisfies all ATS keywords, Google XYZ metrics, and recruiter requirements. Reusing this resume."*
+     - Skip directly to **Step 5: Post-Pass Finalization** (convert to PDF via `convertMdToPdf` if needed and present the final resume).
+
+   - **Case B: HR Flags Deficiencies (Score < 85)**:
+     - The existing resume has gaps compared to this specific job description.
+     - Notify the user:
+       > *"ℹ️ Existing resume evaluated by HR scored **<score>/100 (Needs Revision)** for this specific role.*
+       > *Missing requirements: <list of missing keywords/gaps>.*
+       > *Initiating the Resume Specialist refinement loop to produce a targeted version..."*
+     - Pass the existing resume along with the HR's specific critique and revision instructions directly to `resume-specialist` in **Step 3 / Step 4** to produce a targeted, passing version.
+
+4. **If No Existing Resume Exists**:
+   - Proceed directly to **Step 3** to craft the initial draft from candidate profile and verified git forensics.
+
+---
+
 ### Step 3: Initial Draft Generation (`resume-specialist`)
-Invoke the `resume-specialist` subagent to generate Draft 1:
+Invoke the `resume-specialist` subagent to generate Draft 1 (or refine the existing resume):
 
 ```text
 Please craft a targeted, high-impact, ATS-optimized resume.
@@ -50,11 +87,14 @@ COUNTRY GUIDELINES TO ENFORCE:
 REQUIRED TEMPLATE FORMAT:
 [Content of template.md]
 
+HR PRE-SCREEN FEEDBACK (If existing resume was evaluated):
+[Insert HR critique, missing keywords, and revision instructions, or 'None - Initial Draft']
+
 INSTRUCTIONS:
 Output the complete resume in Markdown format following Google's XYZ formula.
 ```
 
-Wait for `resume-specialist` to return Draft 1.
+Wait for `resume-specialist` to return the draft.
 
 ---
 

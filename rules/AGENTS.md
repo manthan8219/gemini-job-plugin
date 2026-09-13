@@ -31,7 +31,12 @@ To verify, use your `run_command` tool to execute: `node scripts/check_auth.js`.
    - Every bullet should start with a strong action verb and include quantifiable outcomes (% increase, $ saved, latency reduced, users onboarded).
 3. **Keyword Alignment**: Faithfully align candidate experience with target Job Description keywords without fabricating claims.
 4. **Tone**: Maintain a professional, concise, and achievements-focused tone.
-5. **Automated HR Review Loop (Adversarial Quality Gate)**: Every tailored resume MUST undergo the iterative review loop between `resume-specialist` and `hr-reviewer-agent`. If the HR score is < 85, feedback must be sent back to `resume-specialist` for revision. Only once the HR reviewer grants a `PASS` (score >= 85) should you proceed to convert to PDF via `convertMdToPdf` and save to MongoDB via `createResume`.
+5. **Resume Reuse Check & Automated HR Review Loop**:
+   - **Check Before Generating**: Before building a resume from scratch, check if an existing resume in the database (`getUserResumes`, `getResumeForJob`, `getLatestResume`) can be reused.
+   - **Instant HR Evaluation**: Pass the existing resume to `hr-reviewer-agent` against the target Job Description. If the HR agent awards a `PASS` (score >= 85), reuse it immediately!
+   - **Iterative Quality Loop**: If the existing resume scores < 85 (or if no resume exists), feed the HR's specific critique and missing keywords into `resume-specialist` to generate an optimized revision, iterating until the HR reviewer issues a `PASS` (score >= 85).
+   - **Finalization**: Only once approved by the HR reviewer should you proceed to convert to PDF via `convertMdToPdf` and save to MongoDB via `createResume`.
+
 
 
 ---

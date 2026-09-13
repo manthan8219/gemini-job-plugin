@@ -69,7 +69,29 @@ As the final step of onboarding, proactively offer to audit their local reposito
    - Saves the resulting JSON chunks into `.career/repos-extracted.json`.
 5. If the user prefers to skip for now, inform them they can run `/career-portfolio` at any time.
 
-### Step 6: Confirmation & Transition
-1. Confirm to the user that onboarding is 100% complete.
-2. Add a friendly hint telling the user: *"Hint: Type `/career-connect-socials` to link your Discord or Telegram for real-time job application updates!"*
-3. Seamlessly pivot back to their original career request (e.g. tailoring a resume with the `resume-builder` skill).
+### Step 6: Confirmation, What's Next & Job Search Transition
+1. Confirm to the user that their onboarding and profile setup is 100% complete.
+2. Ask the user what they would like to do next, presenting **Job Discovery & Search** as the primary recommended path.
+3. Proactively summarize what we think they want based on their saved profile criteria (from `.job-assistant-session.json` or `getJobProfile`):
+   - **Target Roles**: Target titles captured in profile (e.g. `Senior Software Engineer`, `Backend Engineer`)
+   - **Locations & Arrangements**: Desired locations and work arrangements (e.g. `Pune`, `Bengaluru`, `Remote` | `remote, hybrid`)
+   - **Key Skills**: Core tech stack (e.g. `Java`, `Spring Boot`, `Kubernetes`, `AWS`)
+   - **Experience & Preferences**: Years of experience, employment types, sponsorship
+4. **Confirm Before Searching (Mandatory)**:
+   Explicitly ask the user for confirmation:
+   > *"We think this is what you're looking for based on your profile criteria:*
+   > - **Target Roles**: [titles]
+   > - **Locations / Arrangements**: [locations / arrangements]
+   > - **Key Skills**: [top skills]
+   >
+   > *Would you like us to proceed with searching for matching jobs based on these criteria?"*
+   
+   **IMPORTANT**: Do NOT immediately call the job search MCP tools (`searchJobsDatabase` / `scrapeJobs`). Ask the user first so they can either confirm or tweak the search criteria!
+5. If the user confirms or provides updated filters:
+   - Call `searchJobsDatabase` (or `scrapeJobs`) using their confirmed criteria.
+   - Present curated matching listings with title, company, location, salary, work arrangement, match rationale, and application links.
+6. Also remind the user of alternative actions:
+   - Tailor a resume for a specific job: `/career-resume`
+   - Extract code accomplishments from git repos: `/career-portfolio`
+   - Link Discord/Telegram for live updates: `/career-connect-socials`
+

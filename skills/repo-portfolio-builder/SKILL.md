@@ -71,9 +71,9 @@ Spawn subagents concurrently for the selected Tier 1 and Tier 2 repositories usi
 {
   "Subagents": [
     {
-      "TypeName": "repo-forensic-extractor",
+      "TypeName": "repo-work-extractor",
       "Role": "Forensic Extractor - <RepoName>",
-      "Prompt": "Perform an exhaustive, deep code and git history extraction for author '<author_identity>' in repository '<repository_path>'. Run git queries with Cwd set to repo path. Read the code, diffs, database schemas, and manifests. Return strictly valid JSON as instructed.",
+      "Prompt": "Perform an exhaustive, deep code and git history extraction across author identities ['<author1>', '<author2>'] in repository '<repository_path>'. Run git queries with Cwd set to repo path. Read the manifests, code, diffs, database schemas, and architectural archetypes. Calculate clean churn excluding lockfiles. Return strictly valid JSON as instructed.",
       "Model": "pro"
     }
   ]

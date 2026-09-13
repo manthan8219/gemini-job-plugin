@@ -170,8 +170,20 @@ async function checkRepository(repoName, repoPath, author) {
   };
 }
 
+function parseDateToIso(val) {
+  if (!val) return undefined;
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString();
+  } catch (e) {}
+  return undefined;
+}
+
 async function saveRepositoryWork(chunkData) {
   const session = getSession();
+  const commitsSummary = chunkData.commits_summary || chunkData.commitsSummary || {};
+  const timeline = chunkData.timeline || {};
+
   const payload = {
     userId: session ? session.userId : undefined,
     repositoryName: chunkData.repository_name || chunkData.repositoryName,
@@ -181,8 +193,20 @@ async function saveRepositoryWork(chunkData) {
     primaryLanguage: chunkData.primary_language || (chunkData.primary_languages && chunkData.primary_languages[0]),
     primaryLanguages: chunkData.primary_languages || chunkData.primaryLanguages || [],
     technologiesDetected: chunkData.technologies_detected || chunkData.technologiesDetected || {},
-    timeline: chunkData.timeline || {},
-    commitsSummary: chunkData.commits_summary || chunkData.commitsSummary || {},
+    
+    // Top-level commit statistics matching PostgreSQL schema
+    totalCommits: Number(commitsSummary.total_commits || chunkData.totalCommits || 0),
+    linesAdded: Number(commitsSummary.lines_added || chunkData.linesAdded || 0),
+    linesDeleted: Number(commitsSummary.lines_deleted || chunkData.linesDeleted || 0),
+    filesModified: Number(commitsSummary.files_modified || chunkData.filesModified || 0),
+
+    // Top-level timeline statistics matching PostgreSQL schema
+    totalActiveDays: Number(timeline.total_active_days || chunkData.totalActiveDays || 0),
+    firstCommitDate: parseDateToIso(timeline.first_commit_date || chunkData.firstCommitDate),
+    latestCommitDate: parseDateToIso(timeline.latest_commit_date || chunkData.latestCommitDate),
+
+    timeline: timeline,
+    commitsSummary: commitsSummary,
     workDescription: chunkData.work_description || chunkData.workDescription || {},
     bulletPoints: chunkData.bullet_points || chunkData.bulletPoints || [],
     mostEffectiveWorkList: chunkData.most_effective_work_list || chunkData.mostEffectiveWorkList || []

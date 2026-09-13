@@ -111,8 +111,16 @@ Every time a repository scan/analysis completes, you MUST persist the results to
        "localPath": "<repository_path>",
        "remoteUrl": "<remote_url>",
        "tier": "flagship",
-       "primaryLanguages": ["Java", "SQL"],
+       "primaryLanguage": "TypeScript",
+       "primaryLanguages": ["TypeScript", "GraphQL"],
        "technologiesDetected": { ... },
+       "totalCommits": 254,
+       "linesAdded": 12850,
+       "linesDeleted": 4200,
+       "filesModified": 98,
+       "totalActiveDays": 115,
+       "firstCommitDate": "2025-11-28T00:00:00.000Z",
+       "latestCommitDate": "2026-04-12T00:00:00.000Z",
        "timeline": { ... },
        "commitsSummary": { ... },
        "workDescription": { ... },
@@ -120,6 +128,7 @@ Every time a repository scan/analysis completes, you MUST persist the results to
        "mostEffectiveWorkList": [ ... ]
      }
      ```
+   - **Important**: Ensure both the top-level metric fields (`totalCommits`, `linesAdded`, `linesDeleted`, `filesModified`, `totalActiveDays`, `firstCommitDate`, `latestCommitDate`) and the nested JSON objects (`timeline`, `commitsSummary`, `workDescription`, `bulletPoints`, `mostEffectiveWorkList`) are passed so all PostgreSQL columns are fully populated!
 2. **Local File Persistence**:
    - Save or update `.career/repos-extracted.json` in the active workspace as a local backup and offline reference.
 3. **Present Summary**:

@@ -32,9 +32,11 @@ You have access to a suite of backend MCP tools through the `job-applier-mcp` se
 
 ## Execution Rules
 - **Do not mock data**: If a tool is available, use it rather than pretending to save data.
-- **Chain tools logically**: Example: Check onboarding -> Ask questions -> Mark onboarding completed -> Check repository scraped -> Skip unchanged or extract -> Save user work via MCP -> Proactively summarize profile & confirm job search -> Search jobs -> Score jobs -> Tailor resume -> Convert MD to PDF.
+- **Chain tools logically**: Example: Check onboarding -> Ask questions -> Mark onboarding completed -> Check repository scraped -> Skip unchanged or extract -> Save user work via MCP -> Proactively summarize profile & confirm job search -> Search jobs -> Score jobs against resume -> Tailor resume with HR Review Loop (`resume-specialist` + `hr-reviewer-agent`) -> Convert MD to PDF (`convertMdToPdf`) -> Save to MongoDB (`createResume`).
 - **Pre-Scrape Verification**: Always check `checkRepositoryScraped` (or fallback `getUserWork`) before re-analyzing any codebase. If no commits were authored after `lastScrapedAt`, skip the repository.
 - **Mandatory Persistence**: Always call `saveUserWork` upon completing repository forensic analysis.
 - **Confirm Before Searching**: Always confirm the search criteria with the user before calling `searchJobsDatabase` or `scrapeJobs`.
+- **HR Quality Gate**: Do NOT call `convertMdToPdf` or `createResume` until `hr-reviewer-agent` issues a `PASS` verdict (score >= 85).
+
 
 

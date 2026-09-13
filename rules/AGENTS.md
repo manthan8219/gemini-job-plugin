@@ -31,6 +31,8 @@ To verify, use your `run_command` tool to execute: `node scripts/check_auth.js`.
    - Every bullet should start with a strong action verb and include quantifiable outcomes (% increase, $ saved, latency reduced, users onboarded).
 3. **Keyword Alignment**: Faithfully align candidate experience with target Job Description keywords without fabricating claims.
 4. **Tone**: Maintain a professional, concise, and achievements-focused tone.
+5. **Automated HR Review Loop (Adversarial Quality Gate)**: Every tailored resume MUST undergo the iterative review loop between `resume-specialist` and `hr-reviewer-agent`. If the HR score is < 85, feedback must be sent back to `resume-specialist` for revision. Only once the HR reviewer grants a `PASS` (score >= 85) should you proceed to convert to PDF via `convertMdToPdf` and save to MongoDB via `createResume`.
+
 
 ---
 
